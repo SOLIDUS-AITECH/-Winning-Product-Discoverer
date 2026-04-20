@@ -1,0 +1,141 @@
+version: '1.0'
+blocks:
+  c84c4b8d-fe9b-44cc-96d6-901c58cb1b56:
+    type: agent
+    name: Gaps
+    inputs:
+      systemPrompt: |-
+        Act as a Strategic Market Research Analyst with a focus on market saturation and white space analysis.
+
+        Using only the Amazon Best Sellers data in <firecrawl1.pages>, identify underrepresented or missing product categories that represent viable profit opportunities by serving unmet customer needs.
+
+        CRITICAL INFERENCE INSTRUCTION:
+
+        The output categories MUST NOT be directly visible or highly represented in the provided best-seller data.
+
+        You must infer what is selling well and propose adjacent, complementary, or oppositional categories that logically should be successful but are absent from the current list (e.g., if many 'running shoes' are listed, a missing opportunity might be 'eco-friendly shoe cleaning kits').
+
+        Category Rules:
+
+        Specific: Distinguish similar items (e.g., "lithium-ion AA batteries").
+
+        Not Granular: Exclude model numbers, counts, or brands.
+
+        Not Generic: Avoid broad terms (e.g., "batteries").
+
+        Consolidated: Combine similar items into one consistent name.
+
+        Output: Return ONLY anarray (list) of category names. No reasoning, no explanation, no introductory text.
+
+        Example: ["eco-friendly kitchen storage", "ergonomic office accessories", "pet-safe cleaning sprays"]
+      model: gpt-4o
+    connections:
+      success: d468ff57-6876-4922-adca-9fe0bd8af31e
+  f4e8bf4e-6363-4200-9a81-a6fe43621b4d:
+    type: agent
+    name: Competitve Fields
+    inputs:
+      systemPrompt: |-
+        From the Amazon Best Sellers information in <firecrawl1.pages>, extract and list unique product categories.
+
+        Category Rules:
+
+        Specific: Must distinguish similar items (e.g., "lithium-ion AA batteries").
+
+        Not Granular: Exclude brand names, model numbers, or counts.
+
+        Not Generic: Avoid broad labels (e.g., "batteries").
+
+        Consolidated: Combine duplicates and similar items into unified category names.
+
+        Output: Return ONLY an array (list) of category names. No reasoning, no explanation, no introductory text.
+
+        Example: ["lithium-ion AA batteries", "men's black socks", "wireless noise-cancelling headphones"]
+      model: gpt-4o
+    connections:
+      success: 40f1a352-1807-4ed9-a100-ab67fe32d8e5
+  6c0a720a-6c77-4c8c-b790-b110e3347f57:
+    type: firecrawl
+    name: Firecrawl 1
+    inputs:
+      operation: crawl
+      url: https://www.amazon.com/Best-Sellers/zgbs
+      limit: '2'
+    connections:
+      success:
+        - c84c4b8d-fe9b-44cc-96d6-901c58cb1b56
+        - f4e8bf4e-6363-4200-9a81-a6fe43621b4d
+  d468ff57-6876-4922-adca-9fe0bd8af31e:
+    type: function
+    name: Function 2
+    inputs:
+      code: |-
+        const items = <gaps.content>;
+        let doc = ""
+        items.forEach((item,index)=>{
+        doc+=`${index+1}. ${item}\n`
+        })
+
+        return doc;
+    connections:
+      success:
+        - bcdf5e59-7c9c-4648-86f1-472d1459e10f
+        - 6f548cdd-0e77-4f27-9411-26f7127cc9db
+  40f1a352-1807-4ed9-a100-ab67fe32d8e5:
+    type: function
+    name: Function 1
+    inputs:
+      code: |-
+        const items = <competitvefields.content>;
+        let doc = ""
+        items.forEach((item,index)=>{
+        doc+=`${index+1}. ${item}\n`
+        })
+
+        return doc;
+    connections:
+      success: 6f548cdd-0e77-4f27-9411-26f7127cc9db
+  6f548cdd-0e77-4f27-9411-26f7127cc9db:
+    type: gmail
+    name: Gmail 1
+    inputs:
+      operation: send_gmail
+      subject: Market Gaps and Saturations by Gen6
+      body: |-
+        Hey there's a market gap for the following products.
+
+        <function2.result>
+
+        And these product categories are currently saturated in Amazon Best Sellers.
+
+        <function1.result>
+
+        - Gen6
+  24f23f0f-b1a5-4b69-9ed6-5cb9f826f6b8:
+    type: schedule
+    name: Schedule 1
+    inputs:
+      scheduleType: minutes
+      minutesInterval: '1'
+      hourlyMinute: '1'
+    connections:
+      success: 6c0a720a-6c77-4c8c-b790-b110e3347f57
+  955edbcb-1137-4ab1-8010-2c4849d3300f:
+    type: starter
+    name: Start
+    inputs:
+      startWorkflow: manual
+    connections:
+      success:
+        - 24f23f0f-b1a5-4b69-9ed6-5cb9f826f6b8
+        - 6c0a720a-6c77-4c8c-b790-b110e3347f57
+  bcdf5e59-7c9c-4648-86f1-472d1459e10f:
+    type: telegram
+    name: Telegram 1
+    inputs:
+      text: |-
+        Hey we found these product category gaps in the Amazon Best Sellers, stock up now! 
+
+        <function2.result>
+
+        - Gen6
